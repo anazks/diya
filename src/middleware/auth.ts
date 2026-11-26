@@ -12,7 +12,11 @@ export interface AuthenticatedRequest extends Request {
 }
 
 /** The single account everyone shares when OPEN_ACCESS is on (no sign-in). */
-function getSharedFamilyUser() {
+export async function getSharedFamilyUser(): Promise<IUserDocument> {
+  return (await findOrCreateFamilyUser()) as IUserDocument;
+}
+
+function findOrCreateFamilyUser() {
   return User.findOneAndUpdate(
     { email: 'family@memorial.local' },
     {
@@ -42,7 +46,7 @@ export async function requireAuth(
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       if (!authHeader && process.env.OPEN_ACCESS === 'true') {
-        req.user = (await getSharedFamilyUser()) as IUserDocument;
+        req.user = await getSharedFamilyUser();
         next();
         return;
       }

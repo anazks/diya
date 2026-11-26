@@ -5,7 +5,8 @@ import { Memory } from '../models/Memory';
 import { Video } from '../models/Video';
 import { AudioMemory } from '../models/AudioMemory';
 import { Contribution } from '../models/Contribution';
-import { requireAuth, AuthenticatedRequest, recordAudit } from '../middleware/auth';
+import { requireAuth, requireAdmin, AuthenticatedRequest, recordAudit } from '../middleware/auth';
+import { importImageKitMedia } from '../services/mediaImport';
 import {
   getUploadAuth,
   getVerifiedUpload,
@@ -47,6 +48,15 @@ router.get('/auth', authLimiter, requireAuth, async (req: AuthenticatedRequest, 
     });
   } catch (error: any) {
     sendError(res, error, 'Error preparing upload');
+  }
+});
+
+// POST /api/media/import - Add files that are in ImageKit but not in this database (admin)
+router.post('/import', requireAuth, requireAdmin, async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    res.json(await importImageKitMedia());
+  } catch (error: any) {
+    sendError(res, error, 'Error importing files from ImageKit');
   }
 });
 

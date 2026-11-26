@@ -22,6 +22,7 @@ import uploadRoutes from './routes/uploadRoutes';
 import adminRoutes from './routes/adminRoutes';
 import mediaRoutes from './routes/mediaRoutes';
 import { signMediaUrls } from './middleware/media';
+import { importImageKitMedia } from './services/mediaImport';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -81,6 +82,13 @@ async function startServer() {
   try {
     await mongoose.connect(MONGODB_URI);
     console.log('🕊️ Connected to MongoDB: Memorial Database Active');
+
+    // Bring in files that are in ImageKit but missing here (e.g. after moving to a new database)
+    if (process.env.IMAGEKIT_PRIVATE_KEY) {
+      importImageKitMedia()
+        .then((r) => r.imported && console.log(`🌸 Imported ${r.imported} file(s) from ImageKit`))
+        .catch((err) => console.warn('⚠️ ImageKit import skipped:', err.message));
+    }
   } catch (error) {
     console.warn('⚠️ MongoDB connection failed. Running in memory / offline mode:', (error as Error).message);
   }

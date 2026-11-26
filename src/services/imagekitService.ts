@@ -12,7 +12,7 @@ export class MediaError extends Error {
 
 let client: ImageKit | null = null;
 
-function getClient(): ImageKit {
+export function getClient(): ImageKit {
   const privateKey = process.env.IMAGEKIT_PRIVATE_KEY;
   if (!privateKey || !process.env.IMAGEKIT_PUBLIC_KEY) {
     throw new MediaError(503, 'Media uploads are not configured on the server');
@@ -67,18 +67,23 @@ export async function getVerifiedUpload(fileId: string, userId: string) {
     throw error;
   }
 
+  const upload = getVerifiedUploadFromFile(file, userId);
+  if (!upload) throw new MediaError(403, 'This file does not belong to your account');
+  if (!file.isPrivateFile) throw new MediaError(400, 'Memorial files must be uploaded as private');
+  return upload;
+}
+
+/** Checks an ImageKit file record; null if it is not a private photo/video/audio in a user folder. */
+export function getVerifiedUploadFromFile(
+  file: { fileId?: string; filePath?: string; url?: string; mime?: string; size?: number; name?: string; isPrivateFile?: boolean },
+  userId?: string
+) {
   const [, users, owner, folder] = (file.filePath || '').split('/');
   const fileType = FOLDERS[folder];
-  if (users !== 'users' || owner !== userId || !fileType || !file.url) {
-    throw new MediaError(403, 'This file does not belong to your account');
-  }
-  if (!file.isPrivateFile) {
-    throw new MediaError(400, 'Memorial files must be uploaded as private');
-  }
+  if (users !== 'users' || !owner || (userId && owner !== userId) || !fileType || !file.url || !file.fileId) return null;
+  if (userId === undefined && !file.isPrivateFile) return null;
   const mimeType = file.mime || '';
-  if (mimeType && !mimeType.startsWith(`${fileType}/`)) {
-    throw new MediaError(400, `Invalid file type: ${mimeType}`);
-  }
+  if (mimeType && !mimeType.startsWith(`${fileType}/`)) return null;
 
   const url = file.url.split('?')[0];
   const endpoint = endpointOf(url);
@@ -89,7 +94,7 @@ export async function getVerifiedUpload(fileId: string, userId: string) {
     thumbnailUrl = `${url}/ik-thumbnail.jpg`;
   }
 
-  return { fileId, url, thumbnailUrl, fileType, mimeType, size: file.size || 0, name: file.name || 'Untitled' };
+  return { fileId: file.fileId, url, thumbnailUrl, fileType, mimeType, size: file.size || 0, name: file.name || 'Untitled' };
 }
 
 export async function deleteImageKitFile(fileId: string): Promise<void> {
